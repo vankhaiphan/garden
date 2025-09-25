@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Khu vườn trên mây 🌙</title>
+    <style>
+        :root {
+            --bg1: #0b1220;
+            --bg2: #102232;
+            --accent: #ffd9e8;
+            --muted: #d1e7ffaa;
+            --glass: rgba(255, 255, 255, 0.06);
+            --glass-strong: rgba(255, 255, 255, 0.09);
+            --soft: 18px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        }
+
+        body {
+            background: radial-gradient(1200px 600px at 10% 10%, rgba(20, 40, 60, 0.18), transparent 10%),
+                linear-gradient(180deg, var(--bg1), var(--bg2));
+            color: white;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Canvas fills the screen */
+        #bgCanvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            display: block;
+        }
+
+        /* Controls container */
+        .ui {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+            border-radius: 14px;
+            padding: 12px;
+            backdrop-filter: blur(6px);
+            min-width: 170px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 8px 12px;
+            border-radius: 10px;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn.soft {
+            background: var(--glass);
+            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, 0.06)
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 6px
+        }
+
+        /* Center area */
+        .center {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .panel {
+            width: min(760px, 92%);
+            pointer-events: auto;
+            text-align: center;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+            border-radius: 20px;
+            padding: 20px 22px;
+            box-shadow: 0 20px 40px rgba(2, 6, 23, 0.6);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: 0.2px
+        }
+
+        p.lead {
+            margin: 8px 0 16px;
+            color: var(--muted)
+        }
+
+        /* Breathing circle */
+        .breath {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 6px;
+        }
+
+        #breathCanvas {
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            display: block;
+            touch-action: none;
+        }
+
+        .small {
+            font-size: 14px;
+            color: var(--muted)
+        }
+
+        /* big start overlay */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+            background: linear-gradient(180deg, rgba(8, 10, 16, 0.55), rgba(8, 10, 16, 0.75));
+        }
+
+        .start-card {
+            background: var(--glass-strong);
+            padding: 26px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 420px;
+        }
+
+        .start-card h2 {
+            margin: 0 0 6px;
+            font-size: 18px
+        }
+
+        .start-card p {
+            color: var(--muted);
+            margin: 0 0 14px
+        }
+
+        /* heart button */
+        .heart {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            z-index: 20;
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ff9dc1, #ff77ad);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 30px rgba(255, 120, 160, 0.18);
+        }
+
+        .message {
+            position: fixed;
+            left: 96px;
+            bottom: 24px;
+            z-index: 22;
+            color: var(--muted);
+            font-weight: 600;
+            background: var(--glass);
+            padding: 10px 14px;
+            border-radius: 12px;
+            display: none;
+        }
+
+        /* responsive */
+        @media (max-width:520px) {
+            .ui {
+                right: 10px;
+                top: 10px
+            }
+
+            .card {
+                min-width: 150px;
+                padding: 10px
+            }
+
+            #breathCanvas {
+                width: 220px;
+                height: 220px
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="ui">
+        <div class="card">
+            <label>Sound</label>
+            <div class="controls-row">
+                <button id="toggleSound" class="btn soft">Enable</button>
+                <input id="vol" type="range" min="0" max="1" step="0.01" value="0.35" style="flex:1">
+            </div>
+            <div style="height:8px"></div>
+            <label>Pace</label>
+            <div class="controls-row">
+                <button id="faster" class="btn">+</button>
+                <div style="flex:1" class="small" id="paceLabel">Normal</div>
+                <button id="slower" class="btn">−</button>
+            </div>
+            <div style="height:8px"></div>
+            <div class="controls-row">
+                <button id="sleepyMode" class="btn soft">Sleepy Mode</button>
+                <button id="reset" class="btn">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="center">
+        <div class="panel" role="main" aria-live="polite">
+            <h1>Khu vườn trên mây 🌙</h1>
+            <p class="lead">Press <strong>Enable</strong> sound then tap anywhere to begin the lullaby and breathing
+                guide.</p>
+
+            <div class="breath" aria-hidden="false">
+                <canvas id="breathCanvas"></canvas>
+                <div class="small" id="breathText">Tap to start • Inhale…</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="heart" id="heartBtn" title="Send a tiny hug">💕</div>
+    <div class="message" id="messageBox">You're loved ✨</div>
+
+    <div class="overlay" id="overlay">
+        <div class="start-card">
+            <h2>Thăm khu vườn trên mây với anh nhé</h2>
+            <p>Tap anywhere to begin</p>
+            <button id="startBtn" class="btn">Start</button>
+        </div>
+    </div>
+
+    <script>
+        /* ---------- Setup canvas background (particles / floaters) ---------- */
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let DPR = Math.max(1, window.devicePixelRatio || 1);
+        function resizeBg() {
+            DPR = Math.max(1, window.devicePixelRatio || 1);
+            bgCanvas.width = Math.ceil(window.innerWidth * DPR);
+            bgCanvas.height = Math.ceil(window.innerHeight * DPR);
+            bgCanvas.style.width = window.innerWidth + 'px';
+            bgCanvas.style.height = window.innerHeight + 'px';
+            bgCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        }
+        window.addEventListener('resize', resizeBg);
+        resizeBg();
+
+        const particles = [];
+        const maxP = Math.round(Math.max(60, (window.innerWidth * window.innerHeight) / 7000));
+        for (let i = 0; i < maxP; i++) {
+            particles.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                r: 0.6 + Math.random() * 2.4,
+                vx: (Math.random() - 0.5) * 0.15,
+                vy: -0.02 - Math.random() * 0.3,
+                alpha: 0.03 + Math.random() * 0.25,
+                glow: Math.random() * 1
+            });
+        }
+
+        let last = performance.now();
+        let bgAlpha = 1;
+        let sleepy = false;
+
+        function drawBackground(now) {
+            const dt = Math.min(60, now - last) / 1000; last = now;
+            bgCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+            // subtle gradient wash
+            const g = bgCtx.createLinearGradient(0, 0, 0, window.innerHeight);
+            g.addColorStop(0, 'rgba(18,30,48,0.18)');
+            g.addColorStop(1, 'rgba(6,10,18,0.3)');
+            bgCtx.fillStyle = g;
+            bgCtx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+            for (const p of particles) {
+                p.x += p.vx * (sleepy ? 0.3 : 1) * (0.8 + Math.random() * 0.4) * dt * 60;
+                p.y += p.vy * (sleepy ? 0.5 : 1) * dt * 60;
+                if (p.y < -20) { p.y = window.innerHeight + 20; p.x = Math.random() * window.innerWidth; }
+                if (p.x < -40) p.x = window.innerWidth + 40;
+                if (p.x > window.innerWidth + 40) p.x = -40;
+
+                bgCtx.globalAlpha = p.alpha * (sleepy ? 0.6 : 1) * bgAlpha;
+                // soft glow
+                const rr = p.r + Math.sin((now / 6000) + p.glow) * 0.6;
+                bgCtx.beginPath();
+                bgCtx.fillStyle = 'rgba(255,255,255,0.9)';
+                bgCtx.arc(p.x, p.y, rr, 0, Math.PI * 2);
+                bgCtx.fill();
+            }
+            bgCtx.globalAlpha = 1;
+            requestAnimationFrame(drawBackground);
+        }
+        requestAnimationFrame(drawBackground);
+
+        /* ---------- breathing circle ---------- */
+        const bCanvas = document.getElementById('breathCanvas');
+        const bCtx = bCanvas.getContext('2d');
+        let paceMultiplier = 1; // affects inhale/exhale length
+        let breathState = 'idle'; // inhale, hold, exhale
+        let breathStart = null;
+        let cycleDur = 4000; // ms (inhale+hold+exhale)
+        let soundEnabled = false;
+
+        const breathText = document.getElementById('breathText');
+        
+        function resizeBreath() {
+            const rect = bCanvas.getBoundingClientRect();
+            bCanvas.width = rect.width * DPR;
+            bCanvas.height = rect.height * DPR;
+            bCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+            drawBreath();
+        }
+        window.addEventListener('resize', resizeBreath);
+        resizeBreath();
+
+        function drawBreath(now = performance.now()) {
+            const rect = bCanvas.getBoundingClientRect();
+            const cx = rect.width / 2;
+            const cy = rect.height / 2;
+            const minR = Math.min(rect.width, rect.height) * 0.18;
+            const maxR = Math.min(rect.width, rect.height) * 0.42;
+
+            bCtx.clearRect(0, 0, rect.width, rect.height);
+
+            // background soft ring
+            bCtx.save();
+            const grad = bCtx.createRadialGradient(cx, cy, minR * 0.6, cx, cy, maxR * 1.1);
+            grad.addColorStop(0, 'rgba(255,240,250,0.03)');
+            grad.addColorStop(1, 'rgba(255,255,255,0.01)');
+            bCtx.fillStyle = grad;
+            bCtx.beginPath();
+            bCtx.arc(cx, cy, maxR * 1.12, 0, Math.PI * 2);
+            bCtx.fill();
+            bCtx.restore();
+
+            // breathing animation
+            if (!breathStart) breathStart = now;
+            const elapsed = (now - breathStart) % (cycleDur * paceMultiplier);
+            // phases: inhale = 40%, hold = 20%, exhale = 40%
+            const inhaleT = 0.4 * cycleDur * paceMultiplier;
+            const holdT = 0.2 * cycleDur * paceMultiplier;
+            const exhaleT = 0.4 * cycleDur * paceMultiplier;
+
+            let phase = 'inhale';
+            let t = 0; // 0..1 for current phase
+            if (elapsed < inhaleT) { phase = 'inhale'; t = elapsed / inhaleT; }
+            else if (elapsed < inhaleT + holdT) { phase = 'hold'; t = (elapsed - inhaleT) / holdT; }
+            else { phase = 'exhale'; t = (elapsed - inhaleT - holdT) / exhaleT; }
+
+            // eased radius
+            const ease = x => (1 - Math.cos(Math.PI * x)) / 2;
+            let radius;
+            if (phase === 'inhale') radius = minR + (maxR - minR) * ease(t);
+            else if (phase === 'hold') radius = maxR;
+            else radius = maxR - (maxR - minR) * ease(t);
+
+            // shadowy circle
+            bCtx.beginPath();
+            bCtx.fillStyle = 'rgba(255,255,255,0.06)';
+            bCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+            bCtx.fill();
+
+            // inner glow
+            const g2 = bCtx.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius * 1.2);
+            g2.addColorStop(0, 'rgba(255,240,250,0.18)');
+            g2.addColorStop(0.6, 'rgba(255,255,255,0.03)');
+            g2.addColorStop(1, 'rgba(255,255,255,0)');
+            bCtx.fillStyle = g2;
+            bCtx.beginPath();
+            bCtx.arc(cx, cy, radius * 1.2, 0, Math.PI * 2);
+            bCtx.fill();
+
+            // gentle rings
+            bCtx.lineWidth = 1.2;
+            bCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+            bCtx.beginPath();
+            bCtx.arc(cx, cy, radius * 1.45, 0, Math.PI * 2);
+            bCtx.stroke();
+
+            // small text indicator
+            if (phase === 'inhale') breathText.textContent = 'Hít vào — chậm thui';
+            else if (phase === 'hold') breathText.textContent = 'Giữ một xíu nè';
+            else breathText.textContent = 'Thở ra — nhẹ nhàng thui';
+
+            // vibrate the audio envelope slightly on inhale/exhale if soundEnabled
+            if (soundEnabled && audioReady) {
+                // map radius to a tone amplitude for subtle coupling
+                const amp = 0.06 + 0.12 * ((radius - minR) / (maxR - minR));
+                setAmbientGain(amp);
+            }
+
+            requestAnimationFrame(drawBreath);
+        }
+        requestAnimationFrame(drawBreath);
+
+        /* ---------- Interaction + small messages ---------- */
+        const heartBtn = document.getElementById('heartBtn');
+        const messageBox = document.getElementById('messageBox');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('startBtn');
+
+        const sweetMessages = [
+            "You're loved ✨",
+            "One more deep breath…",
+            "I adore you 💕",
+            "Cozy and calm. Sleep well",
+            "Soft kisses — goodnight 😘",
+            "You're safe here",
+            "Dream of gentle waves",
+            "You glow like moonlight",
+            "Tu me manques déjà 💖",
+            "Je pense à toi 🌙",
+            "Dors bien, mon amour 😘",
+            "Je t'aime fort 💕",
+            "Sweet dreams, my love",
+            "Breathe in calm, breathe out stress",
+            "You're doing great",
+            "Sending you a tiny hug 🤗",
+            "Relax, unwind, let go",
+            "Feel the love around you",
+            "You're my everything 💖",
+            "Nhớ em bé của anh nhìu lắm 💕",
+            "Anh yêu em nhìu lắm 💖",
+            "Mơ về anh nhé 😘",
+            "Em là cả thế giới của anh 🌏",
+            "Em là ánh trăng dịu dàng của anh 🌙",
+            "Ngủ ngon nhé, bé con của anh 😘",
+            "Cảm ơn em đã đến bên anh 💕"
+        ];
+
+        function showMsg(text) {
+            messageBox.textContent = text;
+            messageBox.style.display = 'block';
+            messageBox.style.opacity = '1';
+            messageBox.style.transform = 'translateY(-6px)';
+            setTimeout(() => {
+                messageBox.style.transition = 'opacity 700ms, transform 700ms';
+                messageBox.style.opacity = '0';
+                messageBox.style.transform = 'translateY(0px)';
+                setTimeout(() => { messageBox.style.display = 'none'; messageBox.style.transition = ''; }, 800);
+            }, 1600);
+        }
+
+        heartBtn.addEventListener('click', () => {
+            const m = sweetMessages[Math.floor(Math.random() * sweetMessages.length)];
+            showMsg(m);
+            spawnSparkles();
+        });
+
+        /* tap anywhere to start overlay & audio */
+        function beginExperience() {
+            overlay.style.display = 'none';
+            bgAlpha = 1;
+            // small sparkle
+            spawnSparkles();
+            // unlock audio if enabled
+            if (soundEnabled && !audioPlaying) {
+                startAudio();
+            }
+        }
+        startBtn.addEventListener('click', beginExperience);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) beginExperience();
+        });
+
+        /* clicking the main panel toggles a tiny visual */
+        document.querySelector('.panel').addEventListener('click', (e) => {
+            // spawn a small ring where tapped
+            const rect = bCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            rippleAt(x, y);
+        });
+
+        /* small ripple effect on the breath canvas */
+        const ripples = [];
+        function rippleAt(x, y) {
+            ripples.push({ x, y, r: 8, alpha: 0.7 });
+            // animate
+            const id = setInterval(() => {
+                if (ripples.length === 0) clearInterval(id);
+            }, 1000);
+        }
+        function drawRipples() {
+            const rect = bCanvas.getBoundingClientRect();
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                const rp = ripples[i];
+                bCtx.beginPath();
+                bCtx.strokeStyle = 'rgba(255,255,255,' + (rp.alpha) + ')';
+                bCtx.lineWidth = 1.4;
+                bCtx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+                bCtx.stroke();
+                rp.r += 1.8;
+                rp.alpha -= 0.02;
+                if (rp.alpha <= 0) ripples.splice(i, 1);
+            }
+            requestAnimationFrame(drawRipples);
+        }
+        requestAnimationFrame(drawRipples);
+
+        /* subtle sparkles (clicks) */
+        function spawnSparkles() {
+            const root = document.body;
+            for (let i = 0; i < 8; i++) {
+                const el = document.createElement('div');
+                el.textContent = '✨';
+                el.style.position = 'fixed';
+                const startX = 40 + Math.random() * 120;
+                const startY = window.innerHeight - (40 + Math.random() * 90);
+                el.style.left = startX + 'px';
+                el.style.bottom = (window.innerHeight - startY) + 'px';
+                el.style.fontSize = (10 + Math.random() * 18) + 'px';
+                el.style.opacity = '1';
+                el.style.pointerEvents = 'none';
+                el.style.zIndex = 40;
+                root.appendChild(el);
+                const dx = (-20 + Math.random() * 60);
+                const dy = (-80 - Math.random() * 80);
+                el.animate([
+                    { transform: 'translate(0,0) scale(0.8)', opacity: 1 },
+                    { transform: `translate(${dx}px,${dy}px) scale(1.4)`, opacity: 0 }
+                ], { duration: 1200 + Math.random() * 600, easing: 'cubic-bezier(.2,.7,.2,1)' });
+                setTimeout(() => el.remove(), 2000);
+            }
+        }
+
+        /* ---------- Audio: gentle ambient + lullaby ---------- */
+        let audioCtx, masterGain, ambientGain, melodyGain, oscillator, audioReady = false, audioPlaying = false;
+        let scheduledMelody = [];
+
+        function ensureAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain(); masterGain.gain.value = 0.9;
+            ambientGain = audioCtx.createGain(); ambientGain.gain.value = 0.06;
+            melodyGain = audioCtx.createGain(); melodyGain.gain.value = 0.08;
+            ambientGain.connect(masterGain);
+            melodyGain.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
+
+            // ambient oscillator (slow low drone)
+            oscillator = audioCtx.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 110; // A2-ish
+            const ambientFilter = audioCtx.createBiquadFilter();
+            ambientFilter.type = 'lowpass';
+            ambientFilter.frequency.value = 600;
+            oscillator.connect(ambientFilter);
+            ambientFilter.connect(ambientGain);
+            oscillator.start();
+
+            audioReady = true;
+        }
+
+        /* Change ambient gain gently */
+        let ambientTarget = 0.06;
+        function setAmbientGain(v) {
+            if (!audioReady) return;
+            ambientTarget = v;
+            ambientGain.gain.cancelScheduledValues(audioCtx.currentTime);
+            ambientGain.gain.linearRampToValueAtTime(ambientTarget, audioCtx.currentTime + 0.8);
+        }
+
+        /* Start melodic lullaby using simple synth notes */
+        function startMelodyLoop() {
+            if (!audioReady) ensureAudio();
+            const now = audioCtx.currentTime + 0.05;
+            const pattern = [440, 494, 523, 392, 440, 392, 349]; // simple pleasing notes (A4,B4,C5,G4,...)
+            const baseDur = 0.9 * (paceMultiplier); // seconds each; longer when slow
+            let t = now;
+            scheduledMelody.forEach(id => clearTimeout(id));
+            scheduledMelody = [];
+            for (let i = 0; i < pattern.length; i++) {
+                ((note, start) => {
+                    const id = setTimeout(() => {
+                        playNote(note, start, baseDur * (0.6 + Math.random() * 0.8));
+                    }, (start - now) * 1000);
+                    scheduledMelody.push(id);
+                })(pattern[i], t);
+                t += baseDur * (0.6 + (i % 3 === 0 ? 0.8 : 0.4));
+            }
+            // schedule repeating
+            const repeatId = setTimeout(() => {
+                if (audioPlaying) startMelodyLoop();
+            }, Math.max(1200, (t - now) * 1000));
+            scheduledMelody.push(repeatId);
+        }
+
+        function playNote(freq, startTime, dur) {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'sine';
+            o.frequency.value = freq * (0.5 + Math.random() * 0.02); // tiny detune
+            o.connect(g);
+            g.connect(melodyGain);
+            g.gain.value = 0;
+            const now = audioCtx.currentTime;
+            g.gain.cancelScheduledValues(now);
+            g.gain.setValueAtTime(0, now);
+            g.gain.linearRampToValueAtTime(1.0, now + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+            o.start(now);
+            o.stop(now + dur + 0.02);
+        }
+
+        /* Control functions */
+        const volSl = document.getElementById('vol');
+        volSl.addEventListener('input', e => {
+            const v = parseFloat(e.target.value);
+            if (masterGain) masterGain.gain.value = v;
+        });
+        document.getElementById('toggleSound').addEventListener('click', (e) => {
+            soundEnabled = !soundEnabled;
+            e.target.textContent = soundEnabled ? 'Enabled' : 'Enable';
+            e.target.classList.toggle('soft', !soundEnabled);
+            if (soundEnabled) {
+                ensureAudio();
+            } else {
+                if (audioCtx) audioCtx.suspend();
+            }
+        });
+
+        function startAudio() {
+            if (!audioReady) ensureAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            audioPlaying = true;
+            startMelodyLoop();
+        }
+
+        /* ---------- Pace controls ---------- */
+        const paceLabel = document.getElementById('paceLabel');
+        document.getElementById('faster').addEventListener('click', () => {
+            paceMultiplier = Math.max(0.6, paceMultiplier - 0.15);
+            cycleDur = Math.round(4000 * (1 / paceMultiplier));
+            updatePaceLabel();
+        });
+        document.getElementById('slower').addEventListener('click', () => {
+            paceMultiplier = Math.min(1.9, paceMultiplier + 0.15);
+            cycleDur = Math.round(4000 * (1 / paceMultiplier));
+            updatePaceLabel();
+        });
+        function updatePaceLabel() {
+            if (paceMultiplier < 0.9) paceLabel.textContent = 'Faster';
+            else if (paceMultiplier > 1.4) paceLabel.textContent = 'Slow';
+            else paceLabel.textContent = 'Normal';
+        }
+        updatePaceLabel();
+
+        document.getElementById('reset').addEventListener('click', () => {
+            paceMultiplier = 1; updatePaceLabel();
+            sleepy = false; bgAlpha = 1; document.getElementById('sleepyMode').textContent = 'Sleepy Mode';
+        });
+
+        /* sleepy mode */
+        document.getElementById('sleepyMode').addEventListener('click', () => {
+            sleepy = !sleepy;
+            if (sleepy) {
+                document.getElementById('sleepyMode').textContent = 'Wake gently';
+                bgAlpha = 0.7;
+                // reduce motion & sound
+                if (audioReady) setAmbientGain(0.03);
+            } else {
+                document.getElementById('sleepyMode').textContent = 'Sleepy Mode';
+                bgAlpha = 1;
+                if (audioReady) setAmbientGain(0.06);
+            }
+        });
+
+        /* ---------- tiny accessibility: pressing space toggles start ---------- */
+        document.body.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                beginExperience();
+            }
+        });
+
+        /* ensure audio starts only after user gesture: overlay hides after user tap */
+        document.addEventListener('click', function onceInit(e) {
+            // when user first clicks anywhere, if they enabled sound, we can start audio
+            if (soundEnabled && !audioPlaying) {
+                if (!audioReady) ensureAudio();
+                startAudio();
+            }
+            // remove this listener after first click to avoid duplicate
+            document.removeEventListener('click', onceInit);
+        });
+
+        /* expose a small API for alerts when audio is requested */
+        let audioLocked = true;
+
+        /* ---------- small loop to run extra drawings (ripples layering over breath) ---------- */
+        function extraDrawLoop(now) {
+            // draw ripples last so they're visible
+            // note: drawRipples is already scheduled via requestAnimationFrame
+            requestAnimationFrame(extraDrawLoop);
+        }
+        requestAnimationFrame(extraDrawLoop);
+
+        /* ---------- readiness: small warm greeting after load ---------- */
+        window.addEventListener('load', () => {
+            // start overlay animation micro-interaction
+            setTimeout(() => {
+                const s = document.querySelector('.start-card');
+                s.animate([{ transform: 'translateY(6px)', opacity: 0.95 }, { transform: 'translateY(0px)', opacity: 1 }], { duration: 700, easing: 'cubic-bezier(.2,.7,.2,1)' });
+            }, 200);
+        });
+
+        /* Ensure everything is mobile-friendly: tap on breath canvas toggles start if overlay present */
+        bCanvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+
+        /* End of script */
+    </script>
+</body>
+
+</html>
