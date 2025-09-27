@@ -39,6 +39,16 @@
             display: block;
         }
 
+        /* Ripple canvas overlays background but under UI */
+        #rippleCanvas {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            display: block;
+            pointer-events: none;
+            /* allow clicks through */
+        }
+
         /* Controls container */
         .ui {
             position: fixed;
@@ -226,6 +236,7 @@
 
 <body>
     <canvas id="bgCanvas"></canvas>
+    <canvas id="rippleCanvas"></canvas>
 
     <div class="ui">
         <div class="card">
@@ -676,40 +687,106 @@
             if (e.target === overlay) beginExperience();
         });
 
-        /* clicking the main panel toggles a tiny visual */
-        document.querySelector('.panel').addEventListener('click', (e) => {
-            // spawn a small ring where tapped
-            const rect = bCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            rippleAt(x, y);
-        });
+        /* Panel click kept for other potential interactions (no longer needed for ripples) */
+        // document.querySelector('.panel').addEventListener('click', () => {});
 
-        /* small ripple effect on the breath canvas */
+        /* Global ripple system (can appear anywhere + follows swipe) */
+        const rippleCanvas = document.getElementById('rippleCanvas');
+        const rippleCtx = rippleCanvas.getContext('2d');
+        let rippleDPR = Math.max(1, window.devicePixelRatio || 1);
         const ripples = [];
-        function rippleAt(x, y) {
-            ripples.push({ x, y, r: 8, alpha: 0.7 });
-            // animate
-            const id = setInterval(() => {
-                if (ripples.length === 0) clearInterval(id);
-            }, 1000);
+        let pointerDown = false;
+        let activeRipple = null;
+        let lastTrailTime = 0;
+        let lastX = 0, lastY = 0;
+
+        function resizeRipples() {
+            rippleDPR = Math.max(1, window.devicePixelRatio || 1);
+            rippleCanvas.width = Math.ceil(window.innerWidth * rippleDPR);
+            rippleCanvas.height = Math.ceil(window.innerHeight * rippleDPR);
+            rippleCanvas.style.width = window.innerWidth + 'px';
+            rippleCanvas.style.height = window.innerHeight + 'px';
+            rippleCtx.setTransform(rippleDPR, 0, 0, rippleDPR, 0, 0);
         }
-        function drawRipples() {
-            const rect = bCanvas.getBoundingClientRect();
+        window.addEventListener('resize', resizeRipples);
+        resizeRipples();
+
+        function createRipple(x, y, opts = {}) {
+            const r = {
+                x,
+                y,
+                r: opts.initialRadius || 4,
+                alpha: opts.alpha || 0.7,
+                grow: opts.grow || 2.2,
+                fade: opts.fade || 0.02,
+                lineWidth: opts.lineWidth || 1.4,
+                drag: !!opts.drag // if true, position follows pointer while down
+            };
+            ripples.push(r);
+            return r;
+        }
+
+        function pointerPos(e) {
+            if (e.touches && e.touches.length) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function onPointerDown(e) {
+            const { x, y } = pointerPos(e);
+            pointerDown = true;
+            lastX = x; lastY = y;
+            activeRipple = createRipple(x, y, { drag: true, initialRadius: 6, alpha: 0.75 });
+            lastTrailTime = performance.now();
+        }
+        function onPointerMove(e) {
+            if (!pointerDown) return;
+            const { x, y } = pointerPos(e);
+            const now = performance.now();
+            if (activeRipple && activeRipple.drag) {
+                activeRipple.x = x; activeRipple.y = y;
+            }
+            const dx = x - lastX; const dy = y - lastY; const dist = Math.hypot(dx, dy);
+            // create trailing ripples if moved enough distance or enough time elapsed
+            if (dist > 24 || (now - lastTrailTime) > 90) {
+                createRipple(x, y, { initialRadius: 2, alpha: 0.5, grow: 2.8, fade: 0.03 });
+                lastTrailTime = now;
+                lastX = x; lastY = y;
+            }
+        }
+        function onPointerUp() {
+            pointerDown = false;
+            if (activeRipple) activeRipple.drag = false;
+            activeRipple = null;
+        }
+
+        // Support mouse + touch (pointer events not universally consistent across older mobile browsers)
+        window.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+        window.addEventListener('touchstart', (e) => { onPointerDown(e); }, { passive: true });
+        window.addEventListener('touchmove', (e) => { onPointerMove(e); }, { passive: true });
+        window.addEventListener('touchend', onPointerUp, { passive: true });
+        window.addEventListener('touchcancel', onPointerUp, { passive: true });
+
+        function drawGlobalRipples() {
+            rippleCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
             for (let i = ripples.length - 1; i >= 0; i--) {
                 const rp = ripples[i];
-                bCtx.beginPath();
-                bCtx.strokeStyle = 'rgba(255,255,255,' + (rp.alpha) + ')';
-                bCtx.lineWidth = 1.4;
-                bCtx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
-                bCtx.stroke();
-                rp.r += 1.8;
-                rp.alpha -= 0.02;
+                rippleCtx.beginPath();
+                rippleCtx.strokeStyle = 'rgba(255,255,255,' + rp.alpha + ')';
+                rippleCtx.lineWidth = rp.lineWidth;
+                rippleCtx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+                rippleCtx.stroke();
+                // update
+                rp.r += rp.grow;
+                rp.alpha -= rp.fade;
                 if (rp.alpha <= 0) ripples.splice(i, 1);
             }
-            requestAnimationFrame(drawRipples);
+            requestAnimationFrame(drawGlobalRipples);
         }
-        requestAnimationFrame(drawRipples);
+        requestAnimationFrame(drawGlobalRipples);
 
         /* subtle sparkles (clicks) */
         function spawnSparkles() {
